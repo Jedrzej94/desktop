@@ -28,7 +28,6 @@ import { StashedChangesLoadStates } from '../models/stash-entry'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
 import { TutorialStep, isValidTutorialStep } from '../models/tutorial-step'
 import { openFile } from './lib/open-file'
-import { AheadBehindStore } from '../lib/stores/ahead-behind-store'
 import { dragAndDropManager } from '../lib/drag-and-drop-manager'
 import { DragType } from '../models/drag-drop'
 import { PullRequestSuggestedNextAction } from '../models/pull-request'
@@ -101,7 +100,6 @@ interface IRepositoryViewProps {
   readonly currentTutorialStep: TutorialStep
 
   readonly onExitTutorial: () => void
-  readonly aheadBehindStore: AheadBehindStore
   readonly onCherryPick: (
     repository: Repository,
     commits: ReadonlyArray<CommitOneLine>
@@ -274,12 +272,11 @@ export class RepositoryView extends React.Component<
   }
 
   private renderCompareSidebar(): JSX.Element {
-    const { repository, dispatcher, state, aheadBehindStore, emoji } =
+    const { repository, dispatcher, state, emoji } =
       this.props
     const {
       remote,
       compareState,
-      branchesState,
       commitSelection: { shas },
       commitLookup,
       localCommitSHAs,
@@ -287,8 +284,6 @@ export class RepositoryView extends React.Component<
       tagsToPush,
       multiCommitOperationState: mcos,
     } = state
-    const { tip } = branchesState
-    const currentBranch = tip.kind === TipState.Valid ? tip.branch : null
     const scrollTop =
       this.forceCompareListScrollTop ||
       this.previousSection === RepositorySectionTab.Changes
@@ -305,7 +300,6 @@ export class RepositoryView extends React.Component<
         compareState={compareState}
         selectedCommitShas={shas}
         shasToHighlight={compareState.shasToHighlight}
-        currentBranch={currentBranch}
         emoji={emoji}
         commitLookup={commitLookup}
         localCommitSHAs={localCommitSHAs}
@@ -318,7 +312,6 @@ export class RepositoryView extends React.Component<
         onCherryPick={this.props.onCherryPick}
         compareListScrollTop={scrollTop}
         tagsToPush={tagsToPush}
-        aheadBehindStore={aheadBehindStore}
         isMultiCommitOperationInProgress={mcos !== null}
         askForConfirmationOnCheckoutCommit={
           this.props.askForConfirmationOnCheckoutCommit
@@ -372,9 +365,9 @@ export class RepositoryView extends React.Component<
       sidebarHasFocusWithin === false &&
       this.props.state.selectedSection === RepositorySectionTab.History
     ) {
-      this.props.dispatcher.updateCompareForm(this.props.repository, {
-        showBranchList: false,
-      })
+      // this.props.dispatcher.updateCompareForm(this.props.repository, {
+      //   showBranchList: false,
+      // })
     }
   }
 
@@ -624,7 +617,6 @@ export class RepositoryView extends React.Component<
 
     if (this.focusHistoryNeeded) {
       this.focusHistoryNeeded = false
-      this.compareSidebarRef.current?.focusHistory()
     }
   }
 
@@ -669,9 +661,9 @@ export class RepositoryView extends React.Component<
       section
     )
     if (!!section) {
-      this.props.dispatcher.updateCompareForm(this.props.repository, {
-        showBranchList: false,
-      })
+      // this.props.dispatcher.updateCompareForm(this.props.repository, {
+      //   showBranchList: false,
+      // })
     }
   }
 

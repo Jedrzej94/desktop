@@ -109,7 +109,6 @@ const allMenuIds: ReadonlyArray<MenuIDs> = [
   'stash-all-changes',
   'preferences',
   'update-branch-with-contribution-target-branch',
-  'compare-to-branch',
   'merge-branch',
   'rebase-branch',
   'view-repository-on-github',
@@ -239,8 +238,7 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
     'show-changes',
     'show-history',
     'show-branches-list',
-    'open-external-editor',
-    'compare-to-branch',
+    'open-external-editor'
   ]
 
   const menuStateBuilder = new MenuStateBuilder()
@@ -320,7 +318,6 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
       hasChangedFiles && onBranch && !rebaseInProgress && !hasConflicts
     )
 
-    menuStateBuilder.setEnabled('compare-to-branch', !onDetachedHead)
     menuStateBuilder.setEnabled('toggle-stashed-changes', branchHasStashEntry)
 
     if (
@@ -359,7 +356,6 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
 
     menuStateBuilder.disable('push')
     menuStateBuilder.disable('pull')
-    menuStateBuilder.disable('compare-to-branch')
     menuStateBuilder.disable('compare-on-github')
     menuStateBuilder.disable('branch-on-github')
     menuStateBuilder.disable('toggle-stashed-changes')

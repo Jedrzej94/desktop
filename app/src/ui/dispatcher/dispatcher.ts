@@ -10,7 +10,6 @@ import {
 } from '../../lib/api'
 import { shell } from '../../lib/app-shell'
 import {
-  CompareAction,
   Foldout,
   FoldoutType,
   ICompareFormUpdate,
@@ -2347,18 +2346,15 @@ export class Dispatcher {
   /**
    * Initialize the compare state for the current repository.
    */
-  public initializeCompare(
-    repository: Repository,
-    initialAction?: CompareAction
-  ) {
-    return this.appStore._initializeCompare(repository, initialAction)
+  public initializeCompare(repository: Repository) {
+    return this.appStore._initializeCompare(repository)
   }
 
   /**
    * Update the compare state for the current repository
    */
-  public executeCompare(repository: Repository, action: CompareAction) {
-    return this.appStore._executeCompare(repository, action)
+  public executeCompare(repository: Repository, filterText?: string) {
+    return this.appStore._executeCompare(repository, filterText)
   }
 
   /** Update the compare form state for the current repository */

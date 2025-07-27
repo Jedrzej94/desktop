@@ -764,16 +764,6 @@ export interface IChangesState {
 }
 
 /**
- * This represents the various states the History tab can be in.
- *
- * By default, it should show the history of the current branch.
- */
-export enum HistoryTabMode {
-  History = 'History',
-  Compare = 'Compare',
-}
-
-/**
  * This represents whether the compare tab is currently viewing the
  * commits ahead or behind when merging some other branch into your
  * current branch.
@@ -783,40 +773,10 @@ export enum ComparisonMode {
   Behind = 'Behind',
 }
 
-/**
- * The default comparison state is to display the history for the current
- * branch.
- */
-export interface IDisplayHistory {
-  readonly kind: HistoryTabMode.History
-}
-
-/**
- * When the user has chosen another branch to compare, using their current
- * branch as the base branch.
- */
-export interface ICompareBranch {
-  readonly kind: HistoryTabMode.Compare
-
-  /** The chosen comparison mode determines which commits to show */
-  readonly comparisonMode: ComparisonMode.Ahead | ComparisonMode.Behind
-
-  /** The branch to compare against the base branch */
-  readonly comparisonBranch: Branch
-
-  /** The number of commits the selected branch is ahead/behind the current branch */
-  readonly aheadBehind: IAheadBehind
-}
-
 export interface ICompareState {
-  /** The current state of the compare form, based on user input */
-  readonly formState: IDisplayHistory | ICompareBranch
 
   /** The result of merging the compare branch into the current branch, if a branch selected */
   readonly mergeStatus: MergeTreeResult | null
-
-  /** Whether the branch list should be expanded or hidden */
-  readonly showBranchList: boolean
 
   /** The text entered into the compare branch filter text box */
   readonly filterText: string
@@ -862,23 +822,8 @@ export interface ICompareFormUpdate {
   readonly filterText: string
 
   /** Thew new state of the branches list */
-  readonly showBranchList: boolean
+  // readonly showBranchList: boolean
 }
-
-export interface IViewHistory {
-  readonly kind: HistoryTabMode.History
-}
-
-export interface ICompareToBranch {
-  readonly kind: HistoryTabMode.Compare
-  readonly branch: Branch
-  readonly comparisonMode: ComparisonMode.Ahead | ComparisonMode.Behind
-}
-
-/**
- * An action to send to the application store to update the compare state
- */
-export type CompareAction = IViewHistory | ICompareToBranch
 
 /**
  * Undo state associated with a multi commit operation being performed on a

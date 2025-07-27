@@ -7,7 +7,6 @@ import {
   RepositorySectionTab,
   FoldoutType,
   SelectionType,
-  HistoryTabMode,
 } from '../lib/app-state'
 import { Dispatcher } from './dispatcher'
 import { AppStore, GitHubUserStore, IssuesStore } from '../lib/stores'
@@ -128,7 +127,6 @@ import { ChooseForkSettings } from './choose-fork-settings'
 import { DiscardSelection } from './discard-changes/discard-selection-dialog'
 import { LocalChangesOverwrittenDialog } from './local-changes-overwritten/local-changes-overwritten-dialog'
 import memoizeOne from 'memoize-one'
-import { AheadBehindStore } from '../lib/stores/ahead-behind-store'
 import { getAccountForRepository } from '../lib/get-account-for-repository'
 import { CommitOneLine } from '../models/commit'
 import { CommitDragElement } from './drag-elements/commit-drag-element'
@@ -205,7 +203,6 @@ interface IAppProps {
   readonly appStore: AppStore
   readonly issuesStore: IssuesStore
   readonly gitHubUserStore: GitHubUserStore
-  readonly aheadBehindStore: AheadBehindStore
   readonly notificationsDebugStore: NotificationsDebugStore
   readonly startTime: number
 }
@@ -453,8 +450,6 @@ export class App extends React.Component<IAppProps, IAppState> {
           'updateFromDefaultBranchMenuCount'
         )
         return this.updateBranchWithContributionTargetBranch()
-      case 'compare-to-branch':
-        return this.showHistory(false, true)
       case 'merge-branch':
         this.props.dispatcher.recordMenuInitiatedMerge()
         return this.mergeBranch()
@@ -838,9 +833,7 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   private async showHistory(
-    shouldFocusHistory: boolean,
-    showBranchList: boolean = false
-  ) {
+    shouldFocusHistory: boolean) {
     const state = this.state.selectedState
     if (state == null || state.type !== SelectionType.Repository) {
       return
@@ -848,9 +841,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
     await this.props.dispatcher.closeCurrentFoldout()
 
-    await this.props.dispatcher.initializeCompare(state.repository, {
-      kind: HistoryTabMode.History,
-    })
+    await this.props.dispatcher.initializeCompare(state.repository)
 
     await this.props.dispatcher.changeRepositorySection(
       state.repository,
@@ -858,8 +849,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
 
     await this.props.dispatcher.updateCompareForm(state.repository, {
-      filterText: '',
-      showBranchList,
+      filterText: ''
     })
 
     if (shouldFocusHistory) {
@@ -3257,7 +3247,6 @@ export class App extends React.Component<IAppProps, IAppState> {
           onExitTutorial={this.onExitTutorial}
           isShowingModal={this.isShowingModal}
           isShowingFoldout={this.state.currentFoldout !== null}
-          aheadBehindStore={this.props.aheadBehindStore}
           commitSpellcheckEnabled={this.state.commitSpellcheckEnabled}
           showCommitLengthWarning={this.state.showCommitLengthWarning}
           onCherryPick={this.startCherryPickWithoutBranch}
@@ -3367,9 +3356,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     // we need to exit out of the compare state after the
     // branch has been deleted. Calling executeCompare allows
     // us to do just that.
-    this.props.dispatcher.executeCompare(repository, {
-      kind: HistoryTabMode.History,
-    })
+    this.props.dispatcher.executeCompare(repository)
   }
 
   private inNoRepositoriesViewState() {

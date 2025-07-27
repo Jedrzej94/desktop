@@ -104,15 +104,10 @@ import {
 } from '../api'
 import { shell } from '../app-shell'
 import {
-  CompareAction,
-  HistoryTabMode,
   Foldout,
   FoldoutType,
   IAppState,
-  ICompareBranch,
   ICompareFormUpdate,
-  ICompareToBranch,
-  IDisplayHistory,
   PossibleSelections,
   RepositorySectionTab,
   SelectionType,
@@ -548,8 +543,6 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   /** The current repository filter text */
   private repositoryFilterText: string = ''
-
-  private currentMergeTreePromise: Promise<void> | null = null
 
   /** The function to resolve the current Open in Desktop flow. */
   private resolveOpenInDesktop:
@@ -1363,13 +1356,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     shasInDiff: ReadonlyArray<string>,
     compareState: ICompareState
   ) {
-    const isHistoryTab = compareState.formState.kind === HistoryTabMode.History
-
-    if (isHistoryTab) {
-      this.statsStore.increment('multiCommitDiffFromHistoryCount')
-    } else {
       this.statsStore.increment('multiCommitDiffFromCompareCount')
-    }
 
     const hasUnreachableCommitWarning = !shas.every(s => shasInDiff.includes(s))
 
@@ -1462,13 +1449,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
-  public async _initializeCompare(
-    repository: Repository,
-    initialAction?: CompareAction
-  ) {
+  public async _initializeCompare(repository: Repository) {
     const state = this.repositoryStateCache.get(repository)
 
-    const { branchesState, compareState } = state
+    const { branchesState } = state
     const { tip } = branchesState
     const currentBranch = tip.kind === TipState.Valid ? tip.branch : null
 
@@ -1496,167 +1480,59 @@ export class AppStore extends TypedBaseStore<IAppState> {
       defaultBranch,
     }))
 
-    const cachedState = compareState.formState
-    const action =
-      initialAction != null ? initialAction : getInitialAction(cachedState)
-    this._executeCompare(repository, action)
+    this._executeCompare(repository)
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
   public async _executeCompare(
     repository: Repository,
-    action: CompareAction
+    filterText?: string
   ): Promise<void> {
     const gitStore = this.gitStoreCache.get(repository)
-    const kind = action.kind
 
-    if (action.kind === HistoryTabMode.History) {
-      const { tip } = gitStore
+    const { tip } = gitStore
 
-      let currentSha: string | null = null
+    let currentSha: string | null = null
 
-      if (tip.kind === TipState.Valid) {
-        currentSha = tip.branch.tip.sha
-      } else if (tip.kind === TipState.Detached) {
-        currentSha = tip.currentSha
-      }
-
-      const { compareState } = this.repositoryStateCache.get(repository)
-      const { formState, commitSHAs } = compareState
-      const previousTip = compareState.tip
-
-      const tipIsUnchanged =
-        currentSha !== null &&
-        previousTip !== null &&
-        currentSha === previousTip
-
-      if (
-        tipIsUnchanged &&
-        formState.kind === HistoryTabMode.History &&
-        commitSHAs.length > 0
-      ) {
-        // don't refresh the history view here because we know nothing important
-        // has changed and we don't want to rebuild this state
-        return
-      }
-
-      // load initial group of commits for current branch
-      const commits = await gitStore.loadCommitBatch('HEAD', 0)
-
-      if (commits === null) {
-        return
-      }
-
-      const newState: IDisplayHistory = {
-        kind: HistoryTabMode.History,
-      }
-
-      this.repositoryStateCache.updateCompareState(repository, () => ({
-        tip: currentSha,
-        formState: newState,
-        commitSHAs: commits,
-        filterText: '',
-        showBranchList: false,
-      }))
-      this.updateOrSelectFirstCommit(repository, commits)
-
-      return this.emitUpdate()
+    if (tip.kind === TipState.Valid) {
+      currentSha = tip.branch.tip.sha
+    } else if (tip.kind === TipState.Detached) {
+      currentSha = tip.currentSha
     }
 
-    if (action.kind === HistoryTabMode.Compare) {
-      return this.updateCompareToBranch(repository, action)
-    }
+    const { compareState } = this.repositoryStateCache.get(repository)
+    const { commitSHAs } = compareState
+    const previousFilterText = compareState.filterText
+    const previousTip = compareState.tip
 
-    return assertNever(action, `Unknown action: ${kind}`)
-  }
+    const tipIsUnchanged =
+      currentSha !== null && previousTip !== null && currentSha === previousTip
 
-  private async updateCompareToBranch(
-    repository: Repository,
-    action: ICompareToBranch
-  ) {
-    const gitStore = this.gitStoreCache.get(repository)
+    const filterTextIsUnchanged =
+      (filterText !== undefined && previousFilterText === filterText) ||
+      previousFilterText.length === 0
 
-    const comparisonBranch = action.branch
-    const compare = await gitStore.getCompareCommits(
-      comparisonBranch,
-      action.comparisonMode
-    )
-
-    this.statsStore.increment('branchComparisons')
-    const { branchesState } = this.repositoryStateCache.get(repository)
-
-    if (
-      branchesState.defaultBranch !== null &&
-      comparisonBranch.name === branchesState.defaultBranch.name
-    ) {
-      this.statsStore.increment('defaultBranchComparisons')
-    }
-
-    if (compare == null) {
+    if (tipIsUnchanged && filterTextIsUnchanged && commitSHAs.length > 0) {
+      // don't refresh the history view here because we know nothing important
+      // has changed and we don't want to rebuild this state
       return
     }
 
-    const { ahead, behind } = compare
-    const aheadBehind = { ahead, behind }
+    // load initial group of commits for current branch
+    const commits = await gitStore.loadCommitBatch('HEAD', 0, filterText)
 
-    const commitSHAs = compare.commits.map(commit => commit.sha)
-
-    const newState: ICompareBranch = {
-      kind: HistoryTabMode.Compare,
-      comparisonBranch,
-      comparisonMode: action.comparisonMode,
-      aheadBehind,
+    if (commits === null) {
+      return
     }
 
     this.repositoryStateCache.updateCompareState(repository, () => ({
-      formState: newState,
-      filterText: comparisonBranch.name,
-      commitSHAs,
+      tip: currentSha,
+      commitSHAs: commits,
+      //        filterText: '',
     }))
+    this.updateOrSelectFirstCommit(repository, commits)
 
-    const tip = gitStore.tip
-
-    const loadingMerge: MergeTreeResult = {
-      kind: ComputedAction.Loading,
-    }
-
-    this.repositoryStateCache.updateCompareState(repository, () => ({
-      mergeStatus: loadingMerge,
-    }))
-
-    this.emitUpdate()
-
-    this.updateOrSelectFirstCommit(repository, commitSHAs)
-
-    if (this.currentMergeTreePromise != null) {
-      return this.currentMergeTreePromise
-    }
-
-    if (tip.kind === TipState.Valid && aheadBehind.behind > 0) {
-      this.currentMergeTreePromise = this.setupMergabilityPromise(
-        repository,
-        tip.branch,
-        action.branch
-      )
-        .then(mergeStatus => {
-          this.repositoryStateCache.updateCompareState(repository, () => ({
-            mergeStatus,
-          }))
-
-          this.emitUpdate()
-        })
-        .finally(() => {
-          this.currentMergeTreePromise = null
-        })
-
-      return this.currentMergeTreePromise
-    } else {
-      this.repositoryStateCache.updateCompareState(repository, () => ({
-        mergeStatus: null,
-      }))
-
-      return this.emitUpdate()
-    }
+    return this.emitUpdate()
   }
 
   private setupMergabilityPromise(
@@ -1693,20 +1569,22 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const gitStore = this.gitStoreCache.get(repository)
 
     const state = this.repositoryStateCache.get(repository)
-    const { formState } = state.compareState
-    if (formState.kind === HistoryTabMode.History) {
-      const commits = state.compareState.commitSHAs
+    const { filterText } = state.compareState
+    const commits = state.compareState.commitSHAs
 
-      const newCommits = await gitStore.loadCommitBatch('HEAD', commits.length)
-      if (newCommits == null) {
-        return
-      }
-
-      this.repositoryStateCache.updateCompareState(repository, () => ({
-        commitSHAs: commits.concat(newCommits),
-      }))
-      this.emitUpdate()
+    const newCommits = await gitStore.loadCommitBatch(
+      'HEAD',
+      commits.length,
+      filterText.length > 0 ? filterText : undefined
+    )
+    if (newCommits == null) {
+      return
     }
+
+    this.repositoryStateCache.updateCompareState(repository, () => ({
+      commitSHAs: commits.concat(newCommits),
+    }))
+    this.emitUpdate()
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
@@ -4098,7 +3976,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // Make sure changes or suggested next step are visible after branch checkout
     await this._selectWorkingDirectoryFiles(repository)
 
-    this._initializeCompare(repository, { kind: HistoryTabMode.History })
+    this._initializeCompare(repository)
 
     if (defaultBranch !== null && branch.name !== defaultBranch.name) {
       this.statsStore.recordNonDefaultBranchCheckout()
@@ -8166,29 +8044,6 @@ export class AppStore extends TypedBaseStore<IAppState> {
       setBoolean(canFilterChangesKey, canFilterChanges)
       this.emitUpdate()
     }
-  }
-}
-
-/**
- * Map the cached state of the compare view to an action
- * to perform which is then used to compute the compare
- * view contents.
- */
-function getInitialAction(
-  cachedState: IDisplayHistory | ICompareBranch
-): CompareAction {
-  if (cachedState.kind === HistoryTabMode.History) {
-    return {
-      kind: HistoryTabMode.History,
-    }
-  }
-
-  const { comparisonMode, comparisonBranch } = cachedState
-
-  return {
-    kind: HistoryTabMode.Compare,
-    comparisonMode,
-    branch: comparisonBranch,
   }
 }
 
